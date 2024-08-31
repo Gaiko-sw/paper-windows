@@ -1,4 +1,4 @@
-﻿#Requires AutoHotkey v2.0
+#Requires AutoHotkey v2.0
 ; #include WinEvent.ahk
 
 ; #ErrorStdOut
@@ -6,6 +6,7 @@
 Persistent
 #SingleInstance Force
 ProcessSetPriority "High", WinGetPID("A")
+SetWinDelay -1
 
 OnError E
 E(err, mode) {
