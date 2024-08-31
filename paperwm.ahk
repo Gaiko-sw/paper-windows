@@ -1,5 +1,5 @@
 ﻿#Requires AutoHotkey v2.0
-#include WinEvent.ahk
+; #include WinEvent.ahk
 
 ; #ErrorStdOut
 ; #Warn All, Off
@@ -53,22 +53,31 @@ class WindowManager {
 Return
 
 ShellMessage(msg_type, lparam, msg, hwnd) {
+	OutputDebug msg_type
 	if msg_type = WM_CREATE {
 		OutputDebug "create"
 		NewWindow(lparam)
-	} else if msg_type = WM_DESTROY {
+	}
+	else if msg_type = WM_DESTROY {
 		OutputDebug "destroy"
 		RemoveWindow(lparam)
-	} else if msg_type = WM_ACTIVATE {
+	}
+	else if msg_type = WM_ACTIVATE or msg_type = WM_SETFOCUS or msg_type = 32772 {
 		OutputDebug "activate"
 		FocusWindow(lparam)
-	} else if msg_type = WM_MOVE {
-		; un manage window, reflow
-	} else if msg_type = WM_SIZE {
-		; set width, reflow
-	} else if msg_type = WM_SETFOCUS {
-		; focus window, scroll on screen
 	}
+	else if msg_type = WM_MOVE {
+		OutputDebug "move"
+		RemoveWindow(lparam)
+	}
+	else if msg_type = WM_SIZE {
+		OutputDebug "resize"
+		ReflowWindows()
+	} 
+	; else if msg_type = WM_SETFOCUS {
+	; 	OutputDebug "focus"
+	; 	ScrollWindowOnScreen(lparam)
+	; }
 }
 
 IsWindowManaged(window_id) {
@@ -80,10 +89,14 @@ IsWindowManaged(window_id) {
 }
 
 NewWindow(window_id?) { ;, hook, dwmsEventTime) {
-	OutputDebug "in NewWindow"
-
 	If not IsSet(window_id) {
 		window_id := WinGetID("A")
+	}
+
+	h := 0
+	WinGetPos &x, &y, &w, &h, "ahk_id" window_id
+	if h < A_ScreenHeight / 2 {
+		return
 	}
 
 	global Windows
@@ -97,8 +110,9 @@ NewWindow(window_id?) { ;, hook, dwmsEventTime) {
 	OutputDebug "Inserting at " index
 	Windows.InsertAt(index, window_id)
 
-	FocusWindowAtIndex(index)
 	ReflowWindows()
+	FocusWindowAtIndex(index)
+	; ScrollWindowOnScreen()
 }
 
 RemoveWindow(window_id) {
@@ -130,7 +144,7 @@ FocusWindow(window_id) {
 			FocusWindowAtIndex(i)
 		}
 	}
-	FocussedWindowIndex := 0
+	FocusedWindowIndex := 0
 }
 
 FocusWindowAtIndex(index) {
@@ -138,6 +152,7 @@ FocusWindowAtIndex(index) {
 
 	WinActivate "ahk_id" Windows[index]
 	FocusedWindowIndex := index
+	ScrollWindowOnScreen(index)
 }
 
 FocusNext() {
@@ -197,6 +212,37 @@ Scroll(amount) {
 	ReflowWindows()
 }
 
+ScrollWindowOnScreen(index?) {
+	if not IsSet(index) {
+		index := FocusedWindowIndex
+	}
+	id := Windows[index]
+
+	w := 0
+	x := 0
+	WinGetPos &x, &y, &w, &h, "ahk_id" id
+
+	if x < 0 {
+		PlaceWindow(index, 0)
+	} else if x + w > A_ScreenWidth {
+		PlaceWindow(index, A_ScreenWidth - w)
+	}
+}
+
+PlaceWindow(index, x) {
+	prior_width := 0
+	for i, window in Windows {
+		if i = FocusedWindowIndex {
+			break
+		}
+		W := 0
+		WinGetPos &_, &_, &W, &_, "ahk_id" window
+		prior_width += W
+	}
+	new_start_x := -prior_width + x
+
+	ReflowWindows(new_start_x)
+}
 CentreCurrentWindow() {
 	prior_width := 0
 	current_window := Windows[FocusedWindowIndex]
